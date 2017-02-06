@@ -213,12 +213,11 @@ function handleRequest(http, onend) {
 
   // Wrappers for performing API calls
   function _vfsCall() {
-    let method = http.endpoint.replace(/(^get\/)?/, '');
+    let method = http.endpoint;
     let args = http.data;
 
-    if ( http.endpoint.match(/^get\//) ) {
-      method = 'read';
-      args = {path: http.endpoint.replace(/(^get\/)?/, '')};
+    if ( method === 'read' && http.method === 'GET' ) {
+      args = {path: http.query.path};
     }
 
     _checkPermission('fs', {method: method, args: args}).then(() => {
@@ -483,11 +482,14 @@ function createWebsocketResponder(ws, index) {
  * Creates the `ServerRequest` object passed around.
  */
 function createHttpObject(request, response, path, data, responder, files) {
+  const url = _url.parse(request.url, true);
+
   return Object.freeze({
     request: request,
     response: response,
     method: request.method,
     path: path,
+    query: url.query || {},
     data: data || {},
     files: files || {},
     isfs: path.match(/^\/FS/) !== null,
