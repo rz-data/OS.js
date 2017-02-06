@@ -278,9 +278,7 @@ const VFS = {
         streamOut.destroy();
 
         _fs.remove(source, () => {
-          http.respond.raw(String(1), 200, {
-            'Content-Type': 'text/plain'
-          });
+          resolve(true);
         });
       }
 
@@ -312,6 +310,10 @@ const VFS = {
     }, reject);
   },
 
+  /*
+   * NOTE: This method is pretty much deprecated as the
+   * frontend uses uploading as a method of writing.
+   */
   write: function(http, args, resolve, reject) {
     const resolved = _vfs.parseVirtualPath(args.path, http);
     const options = args.options || {};
@@ -327,8 +329,6 @@ const VFS = {
       });
     }
 
-    /*existsWrapper(true, resolved.real, () => {
-    }, reject);*/
     if ( options.raw ) {
       writeFile(data, options.rawtype || 'binary');
     } else {
