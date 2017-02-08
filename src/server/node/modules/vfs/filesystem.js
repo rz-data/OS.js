@@ -83,42 +83,57 @@ function createWatch(name, mount, callback) {
 
   const parseWatch = (function parseWatch() {
     const reps = (s) => s.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&');
-    const cp = configPath.replace(/\\/g, '/');
+
+    const tmpDir = configPath.replace(/\\/g, '/');
+    const tmpRestr = reps(tmpDir).replace(/%(.*)%/g, '([^\/]*)');
+    const tmpRe = new RegExp('^' + tmpRestr, 'g')
+    const tmpArgs = tmpDir.match(/%(.*)%/g) || [];
+    const hasArgs = configPath.match(/(%[A-z_]+%)/g);
 
     return (realPath) => {
       realPath = realPath.replace(/\\/g, '/');
-
-      const tmpRestr = reps(cp).replace(/%(.*)%/g, '([^\/]*)');
-      const tmpRe = new RegExp('^' + tmpRestr)
-      const args = {};
       const matched = realPath.match(tmpRe) || [];
       const relPath = realPath.replace(tmpRe, '');
 
-      (cp.match(/%(.*)%/g) || []).forEach((key, idx) => {
-        args[key.replace(/%/g, '').toLowerCase()] = matched[idx + 1];
-      });
+      if ( hasArgs.length !== matched.length || !relPath ) {
+        return null;
+      }
 
       return {
-        real: realPath,
-        args: args,
-        virtual: relPath
+        virtual: relPath,
+        args: (function() {
+          const args = {};
+          tmpArgs.forEach((key, idx) => {
+            args[key.replace(/%/g, '').toLowerCase()] = matched[idx];
+          });
+          return args;
+        })()
       };
     };
   })();
 
   const found = configPath.indexOf('%');
   const dir = found > 0 ? configPath.substr(0, found) : configPath;
+
   _chokidar.watch(dir, {ignoreInitial: true, persistent: true}).on('all', (evname, wpath) => {
     if ( ['change', 'error'].indexOf(evname) === -1 ) {
-      const parsed = parseWatch(wpath);
-      const virtual = name + '://' + parsed.virtual.replace(/^\/?/, '/');
+      try {
+        const parsed = parseWatch(wpath);
+        if ( !parsed ) {
+          return;
+        }
 
-      callback(name, mount, {
-        event: watchMap[evname] || evname,
-        real: wpath,
-        path: virtual,
-        args: parsed.args
-      });
+        const virtual = name + '://' + parsed.virtual.replace(/^\/?/, '/');
+
+        callback(name, mount, {
+          event: watchMap[evname] || evname,
+          real: wpath,
+          path: virtual,
+          args: parsed.args
+        });
+      } catch ( e ) {
+        console.warn(e, e.stack);
+      }
     }
   });
 }
